@@ -26,6 +26,16 @@ router.get('/', (req, res) => {
     env: config.env,
     uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
     database: healthy,
+    security: {
+      secretsSource: config.secretsSource,
+      secretsPersisted: config.secretsPersisted,
+      warning:
+        config.secretsSource === 'env'
+          ? null
+          : config.secretsPersisted
+            ? 'JWT_SECRET/ENCRYPTION_KEY no están en variables de entorno; se usan los guardados en el disco.'
+            : 'JWT_SECRET/ENCRYPTION_KEY son efímeros: define las variables en Render para no perder las sesiones.',
+    },
     opencode: serverStatus(),
     events: eventHub.status,
   });

@@ -28,6 +28,11 @@ async function main() {
   const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`[api] OpenCode Web Chat escuchando en http://0.0.0.0:${config.port} (${config.env})`);
     console.log(`[api] datos en ${config.dataDir}`);
+    console.log(
+      `[api] secretos: origen=${config.secretsSource}` +
+        (config.secretsPersisted ? ' (persistidos en el disco)' : '') +
+        (config.secretsSource !== 'env' ? ' — define JWT_SECRET y ENCRYPTION_KEY en Render' : ''),
+    );
     if (!config.opencode.baseUrl) {
       console.log(`[api] OpenCode se arrancará como proceso hijo en el puerto ${config.opencode.port}`);
     }

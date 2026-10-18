@@ -26,24 +26,65 @@ function list(value) {
 
 const dataDir = process.env.DATA_DIR ?? (isProd ? '/data' : path.join(os.tmpdir(), 'opencode-web-chat'));
 
-const jwtSecret = process.env.JWT_SECRET ?? '';
-const encryptionKey = process.env.ENCRYPTION_KEY ?? '';
+const SECRETS_FILE = path.join(dataDir, 'secrets.json');
 
-if (isProd && (!jwtSecret || !encryptionKey)) {
-  throw new Error(
-    'JWT_SECRET y ENCRYPTION_KEY son obligatorios en producción. Defínelos en las variables de entorno de Render.',
-  );
+/**
+ * Resuelve los secretos de firma de JWT y de cifrado de API keys.
+ *
+ * Prioridad:
+ *  1. Variables de entorno `JWT_SECRET` y `ENCRYPTION_KEY` (lo recomendado).
+ *  2. Fichero `secrets.json` dentro del disco persistente (se generó antes).
+ *  3. Se generan aleatoriamente y se guardan en ese fichero.
+ *
+ * Así el servicio arranca en Render aunque se olvide definir las variables, y los
+ * secretos sobreviven a reinicios y despliegues (el disco está montado en /data).
+ */
+function resolveSecrets() {
+  const fromEnv = {
+    jwt: (process.env.JWT_SECRET ?? '').trim(),
+    encryption: (process.env.ENCRYPTION_KEY ?? '').trim(),
+  };
+  if (fromEnv.jwt && fromEnv.encryption) {
+    return { jwt: fromEnv.jwt, encryption: fromEnv.encryption, source: 'env', persisted: false };
+  }
+
+  let stored = {};
+  try {
+    if (fs.existsSync(SECRETS_FILE)) {
+      stored = JSON.parse(fs.readFileSync(SECRETS_FILE, 'utf8'));
+    }
+  } catch (error) {
+    console.warn(`[config] no se pudo leer ${SECRETS_FILE}: ${error.message}`);
+  }
+
+  const resolved = {
+    jwt: fromEnv.jwt || stored.jwt || crypto.randomBytes(48).toString('base64url'),
+    encryption: fromEnv.encryption || stored.encryption || crypto.randomBytes(48).toString('base64url'),
+  };
+
+  try {
+    if (resolved.jwt !== stored.jwt || resolved.encryption !== stored.encryption) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(SECRETS_FILE, JSON.stringify(resolved, null, 2), { mode: 0o600 });
+    }
+    const missing = [!fromEnv.jwt && 'JWT_SECRET', !fromEnv.encryption && 'ENCRYPTION_KEY'].filter(Boolean);
+    console.warn(
+      `[config] ${missing.join(' y ')} sin definir: se generaron y guardaron en ${SECRETS_FILE}. ` +
+        'Defínelas como variables de entorno en Render para controlarlas tú.',
+    );
+    return { ...resolved, source: 'file', persisted: true };
+  } catch (error) {
+    console.warn(
+      `[config] no se pudo guardar ${SECRETS_FILE} (${error.message}): los secretos serán efímeros ` +
+        'y las sesiones caducarán al reiniciar. Define JWT_SECRET y ENCRYPTION_KEY en Render.',
+    );
+    return { ...resolved, source: 'ephemeral', persisted: false };
+  }
 }
 
-if (!jwtSecret || !encryptionKey) {
-  // Solo en desarrollo: secretos efímeros para no romper el arranque local.
-  console.warn(
-    '[config] JWT_SECRET/ENCRYPTION_KEY no definidos: usando secretos efímeros de desarrollo. ' +
-      'Los tokens y las API keys guardadas dejarán de ser válidos al reiniciar.',
-  );
-}
-
-const devFallback = crypto.createHash('sha256').update('opencode-web-chat-dev').digest('hex');
+const secrets = resolveSecrets();
+const jwtSecret = secrets.jwt;
+const encryptionKey = secrets.encryption;
 
 export const config = {
   env,
@@ -58,9 +99,12 @@ export const config = {
   uploadsDir: process.env.UPLOADS_DIR ?? path.join(dataDir, 'uploads'),
 
   // --- Seguridad ----------------------------------------------------------
-  jwtSecret: jwtSecret || devFallback,
+  jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
-  encryptionKey: encryptionKey || `${devFallback}-encryption`,
+  encryptionKey,
+  /** De dónde salieron los secretos: `env`, `file` o `ephemeral`. */
+  secretsSource: secrets.source,
+  secretsPersisted: secrets.persisted,
   bcryptRounds: Number(process.env.BCRYPT_ROUNDS ?? 10),
   corsOrigins: list(process.env.CORS_ORIGINS),
 

@@ -124,8 +124,8 @@ El backend habla con ese servidor usando autenticación Basic
 | --- | --- | --- |
 | `NODE_ENV` | `development` | `production` activa cookies `secure` y oculta errores internos. |
 | `PORT` | `3001` | Puerto HTTP. Render lo inyecta automáticamente. |
-| `JWT_SECRET` | — | **Obligatorio en producción.** Firma de los JWT. |
-| `ENCRYPTION_KEY` | — | **Obligatorio en producción.** Clave maestra de cifrado de las API keys. |
+| `JWT_SECRET` | autogenerado | Firma de los JWT. Si no se define, se genera y se guarda en `<DATA_DIR>/secrets.json`. |
+| `ENCRYPTION_KEY` | autogenerado | Clave maestra de cifrado de las API keys. Igual que la anterior. |
 | `JWT_EXPIRES_IN` | `7d` | Caducidad del token. |
 | `BCRYPT_ROUNDS` | `10` | Rondas de hash de contraseñas. |
 | `DATA_DIR` | `/data` (prod) · tmp (dev) | Directorio raíz de datos. |
@@ -356,6 +356,33 @@ Con el [`render.yaml`](./render.yaml) incluido, en Render entra en
 > despliegue (el plan gratuito tampoco permite `opencode serve` sostenido por el
 > límite de horas).
 
+### Secretos: automáticos o manuales
+
+`JWT_SECRET` y `ENCRYPTION_KEY` se resuelven en este orden:
+
+1. **Variables de entorno** (`JWT_SECRET`, `ENCRYPTION_KEY`). Es lo recomendado.
+2. **Fichero persistente** `<DATA_DIR>/secrets.json`, si ya se generó antes.
+3. **Se generan aleatoriamente** y se guardan en ese fichero.
+
+Es decir: **el servicio arranca aunque olvides definirlas**. Como `/data` es un disco
+persistente, los secretos sobreviven a reinicios y despliegues (las sesiones y las API
+keys cifradas siguen siendo válidas). Si el disco no es escribible, se usan secretos
+efímeros y el backend lo avisa en los logs y en `GET /api/health`.
+
+```bash
+# ¿De dónde salieron mis secretos?
+curl https://<tu-servicio>.onrender.com/api/health | grep -A3 security
+```
+
+Para generarlos tú mismo y pegarlos en Render → *Environment*:
+
+```bash
+openssl rand -base64 48   # ejecútalo dos veces: uno para JWT_SECRET y otro para ENCRYPTION_KEY
+```
+
+⚠️ Si algún día **cambias `ENCRYPTION_KEY`**, las API keys ya guardadas en SQLite
+dejarán de poder descifrarse y habrá que volver a introducirlas.
+
 Configuración equivalente si lo creas a mano:
 
 - **Build Command:** `npm ci && npm run build`
@@ -425,6 +452,7 @@ Otras decisiones y su motivo:
 
 | Síntoma | Causa y solución |
 | --- | --- |
+| El despliegue falla con `JWT_SECRET y ENCRYPTION_KEY son obligatorios` | Ya no ocurre: el backend los genera y los guarda en `/data/secrets.json`. Actualiza a la última versión. Si quieres controlarlos, defínelos en Render → *Environment*. |
 | `Cannot find module 'better-sqlite3'` o `better_sqlite3.node` | npm 11+ bloquea los scripts de instalación. Ejecuta `npm rebuild better-sqlite3` (y `npm install-scripts approve better-sqlite3`). En Node 20 no ocurre. |
 | `/api/status` dice "sin conexión" | El servidor no arrancó. Mira `GET /api/status/logs` y comprueba que el binario existe (`OPENCODE_BIN`). |
 | "API key inválida" al chatear | La credencial caducó o no tiene permiso. Verifícala en Ajustes o cambia de modelo. |
