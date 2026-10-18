@@ -1,0 +1,31 @@
+{
+  "name": "@opencode-web-chat/backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API Express que habla con el servidor de OpenCode y sirve el frontend estático.",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@opencode/cli": "^2.0.32",
+    "@opencode/client": "^2.0.32",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.4.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.12.1",
+    "multer": "^2.4.0",
+    "zod": "^4.6.7"
+  }
+}

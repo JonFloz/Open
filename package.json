@@ -1,0 +1,25 @@
+{
+  "name": "opencode-web-chat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chat web estilo DeepSeek/Gemini para interactuar con OpenCode desde el navegador.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace frontend",
+    "start": "node backend/src/index.js",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "test": "npm run test --workspace backend"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "@opencode/cli@2.0.32": true
+  }
+}

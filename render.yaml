@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# Definición del servicio en Render (Blueprint / render.yaml)
+#
+# Nota: los discos persistentes requieren un plan de pago (Starter o superior),
+# porque el plan gratuito no permite montar discos.
+# ---------------------------------------------------------------------------
+services:
+  - type: web
+    name: opencode-web-chat
+    runtime: node
+    region: oregon
+    plan: starter
+    branch: main
+    autoDeploy: false # el despliegue lo dispara GitHub Actions
+    buildCommand: npm ci && npm run build
+    startCommand: node backend/src/index.js
+    healthCheckPath: /api/health
+    # El CLI de OpenCode 2 llega como dependencia npm (@opencode/cli), así que
+    # el build no necesita descargar nada extra: `npm ci` deja el binario en
+    # node_modules/.bin/opencode y el backend lo localiza solo.
+    disk:
+      name: opencode-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /data/opencode.db
+      - key: SKILLS_DIR
+        value: /data/skills
+      - key: UPLOADS_DIR
+        value: /data/uploads
+      - key: OPENCODE_AUTOSTART
+        value: "true"
+      - key: OPENCODE_PORT
+        value: "4096"
+      - key: OPENCODE_DIRECTORY
+        value: /data/workspace
+      - key: OPENCODE_DEFAULT_MODEL
+        value: opencode-go/deepseek-v4.1-flash
+      - key: OPENCODE_DEFAULT_AGENT
+        value: build

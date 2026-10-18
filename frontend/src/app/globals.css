@@ -1,0 +1,243 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Modo oscuro por clase (el tema se guarda en las preferencias del usuario).
+--------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Fuentes.
+   - UI: pila del sistema (carga instantánea, sin dependencias de red).
+   - Matemáticas/símbolos: se cargan desde Google Fonts en layout.tsx y aquí se
+     declara el orden de preferencia, con alternativas locales.
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  --font-mono:
+    ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-math:
+    'Noto Sans Math', 'Noto Sans Symbols 2', 'STIX Two Math', 'Latin Modern Math', Symbola,
+    'Cambria Math', 'DejaVu Sans', 'Segoe UI Symbol', serif;
+}
+
+/* ---------------------------------------------------------------------------
+   Paleta (claro / oscuro) como variables CSS y expuesta a Tailwind.
+--------------------------------------------------------------------------- */
+:root {
+  --bg: oklch(98.5% 0.003 250);
+  --surface: oklch(100% 0 0);
+  --surface-2: oklch(96.5% 0.005 250);
+  --surface-3: oklch(93.5% 0.007 250);
+  --border: oklch(89% 0.008 250);
+  --text: oklch(24% 0.012 255);
+  --muted: oklch(52% 0.014 255);
+  --accent: oklch(55% 0.19 267);
+  --accent-soft: oklch(94% 0.03 267);
+  --accent-contrast: oklch(99% 0 0);
+  --success: oklch(58% 0.15 150);
+  --danger: oklch(56% 0.2 22);
+  --warning: oklch(70% 0.15 80);
+}
+
+.dark {
+  --bg: oklch(19% 0.012 260);
+  --surface: oklch(23% 0.014 262);
+  --surface-2: oklch(26.5% 0.015 262);
+  --surface-3: oklch(31% 0.016 262);
+  --border: oklch(34% 0.015 262);
+  --text: oklch(94% 0.005 260);
+  --muted: oklch(71% 0.014 260);
+  --accent: oklch(66% 0.16 270);
+  --accent-soft: oklch(31% 0.05 268);
+  --accent-contrast: oklch(17% 0.02 265);
+  --success: oklch(72% 0.15 152);
+  --danger: oklch(66% 0.19 22);
+  --warning: oklch(80% 0.14 82);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Los símbolos matemáticos usan la pila de fuentes matemáticas. */
+  code,
+  kbd,
+  samp,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+    background-clip: content-box;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Contenido de los mensajes (markdown ligero, sin LaTeX).
+--------------------------------------------------------------------------- */
+@layer components {
+  .message-body {
+    font-family: var(--font-math);
+    line-height: 1.7;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .message-body > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .message-body h1,
+  .message-body h2,
+  .message-body h3,
+  .message-body h4 {
+    font-family: var(--font-sans);
+    font-weight: 650;
+    line-height: 1.3;
+  }
+  .message-body h1 {
+    font-size: 1.4rem;
+  }
+  .message-body h2 {
+    font-size: 1.2rem;
+  }
+  .message-body h3 {
+    font-size: 1.05rem;
+  }
+
+  .message-body ul,
+  .message-body ol {
+    padding-left: 1.4rem;
+  }
+  .message-body ul {
+    list-style: disc;
+  }
+  .message-body ol {
+    list-style: decimal;
+  }
+  .message-body li + li {
+    margin-top: 0.25rem;
+  }
+
+  .message-body a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .message-body blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 0.85rem;
+    color: var(--muted);
+  }
+
+  .message-body hr {
+    border-color: var(--border);
+  }
+
+  .message-body code:not(pre code) {
+    background: var(--surface-3);
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.35rem;
+    font-size: 0.9em;
+  }
+
+  .message-body table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-sans);
+    font-size: 0.9em;
+  }
+  .message-body th,
+  .message-body td {
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+  }
+  .message-body th {
+    background: var(--surface-2);
+  }
+
+  .math-symbols {
+    font-family: var(--font-math);
+  }
+
+  .scroll-thin {
+    scrollbar-width: thin;
+  }
+
+  .animate-in-up {
+    animation: in-up 180ms ease-out;
+  }
+}
+
+@keyframes in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in-up {
+    animation: none;
+  }
+}
