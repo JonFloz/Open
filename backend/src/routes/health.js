@@ -26,6 +26,13 @@ router.get('/', (req, res) => {
     env: config.env,
     uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
     database: healthy,
+    storage: {
+      dataDir: config.dataDir,
+      writable: config.dataDirWritable,
+      warning: config.dataDirWarning
+        ? `${config.dataDirWarning} Los datos no serán persistentes: añade un disco montado en /data.`
+        : null,
+    },
     security: {
       secretsSource: config.secretsSource,
       secretsPersisted: config.secretsPersisted,

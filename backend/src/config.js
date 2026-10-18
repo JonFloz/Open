@@ -24,7 +24,46 @@ function list(value) {
     .filter(Boolean);
 }
 
-const dataDir = process.env.DATA_DIR ?? (isProd ? '/data' : path.join(os.tmpdir(), 'opencode-web-chat'));
+const configuredDataDir = process.env.DATA_DIR ?? (isProd ? '/data' : path.join(os.tmpdir(), 'opencode-web-chat'));
+
+/**
+ * Comprueba que el directorio de datos es escribible.
+ *
+ * Si el disco persistente de Render no está montado (por ejemplo, en el plan
+ * gratuito o si se olvidó añadirlo), `/data` no existe o no es escribible. En
+ * ese caso caemos a un directorio temporal en vez de dejar el servicio en un
+ * bucle de reinicios, y lo avisamos bien claro.
+ */
+function resolveDataDir(candidate) {
+  try {
+    fs.mkdirSync(candidate, { recursive: true });
+    fs.accessSync(candidate, fs.constants.W_OK);
+    return { dataDir: candidate, writable: true, reason: null };
+  } catch (error) {
+    const fallback = path.join(os.tmpdir(), 'opencode-web-chat');
+    try {
+      fs.mkdirSync(fallback, { recursive: true });
+    } catch {
+      /* si ni el temporal funciona, seguimos y que falle al abrir SQLite */
+    }
+    return {
+      dataDir: fallback,
+      writable: false,
+      reason: `No se puede escribir en ${candidate} (${error.code ?? error.message}).`,
+    };
+  }
+}
+
+const dataDirResolution = resolveDataDir(configuredDataDir);
+const dataDir = dataDirResolution.dataDir;
+
+if (!dataDirResolution.writable) {
+  console.error(
+    `[config] ${dataDirResolution.reason} ` +
+      `Se usará ${dataDir}, que NO es persistente: los datos se perderán en cada reinicio. ` +
+      'Añade un disco persistente montado en /data en Render (plan Starter o superior).',
+  );
+}
 
 const SECRETS_FILE = path.join(dataDir, 'secrets.json');
 
@@ -94,6 +133,9 @@ export const config = {
 
   // --- Persistencia -------------------------------------------------------
   dataDir,
+  /** `true` si el directorio de datos es el esperado y es escribible. */
+  dataDirWritable: dataDirResolution.writable,
+  dataDirWarning: dataDirResolution.reason,
   databasePath: process.env.DATABASE_PATH ?? path.join(dataDir, 'opencode.db'),
   skillsDir: process.env.SKILLS_DIR ?? path.join(dataDir, 'skills'),
   uploadsDir: process.env.UPLOADS_DIR ?? path.join(dataDir, 'uploads'),
@@ -136,12 +178,17 @@ export const config = {
   modelsCacheTtl: Number(process.env.MODELS_CACHE_TTL ?? 60 * 60 * 1000), // 1 hora
 };
 
-/** Crea los directorios de datos necesarios. */
+/** Crea los directorios de datos necesarios. Nunca lanza: solo avisa. */
 export function ensureDataDirs() {
-  for (const dir of [config.dataDir, config.skillsDir, config.uploadsDir, config.opencode.directory]) {
-    fs.mkdirSync(dir, { recursive: true });
+  const targets = [config.dataDir, config.skillsDir, config.uploadsDir, config.opencode.directory];
+  targets.push(path.dirname(config.databasePath));
+  for (const dir of targets) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (error) {
+      console.error(`[config] no se pudo crear ${dir}: ${error.message}`);
+    }
   }
-  fs.mkdirSync(path.dirname(config.databasePath), { recursive: true });
 }
 
 export default config;
