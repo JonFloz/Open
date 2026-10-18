@@ -27,6 +27,8 @@ function boot({ dataDir, jwt, encryption }) {
       persisted: config.secretsPersisted,
       jwt: config.jwtSecret.slice(0, 12),
       encryption: config.encryptionKey.slice(0, 12),
+      dataDir: config.dataDir,
+      dataDirWritable: config.dataDirWritable,
     }));
   `;
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
@@ -93,10 +95,31 @@ test('si solo falta una variable, la otra se respeta y solo se genera la ausente
   assert.notEqual(stored.encryption, 'jwt-de-entorno');
 });
 
-test('si el disco no es escribible arranca igualmente con secretos efímeros', () => {
-  const run = boot({ dataDir: path.join('/proc', `no-escribible-${Date.now()}`) });
+test('si el directorio de datos no es escribible cae al temporal y no aborta', () => {
+  const requested = path.join('/proc', `no-escribible-${Date.now()}`);
+  const run = boot({ dataDir: requested });
 
   assert.equal(run.status, 0, 'no debe abortar el arranque');
-  assert.equal(run.output.source, 'ephemeral');
-  assert.equal(run.output.persisted, false);
+  assert.equal(run.output.dataDirWritable, false);
+  assert.notEqual(run.output.dataDir, requested, 'debe usar el directorio temporal de respaldo');
+  assert.ok(run.output.dataDir.includes('opencode-web-chat'));
+});
+
+test('un directorio de datos de solo lectura tampoco impide el arranque', () => {
+  const dataDir = tempDir();
+  const readOnly = path.join(dataDir, 'solo-lectura');
+  fs.mkdirSync(readOnly, { recursive: true });
+  fs.chmodSync(readOnly, 0o500);
+
+  try {
+    // Saltamos el test si corremos como root (root escribe en cualquier sitio).
+    fs.accessSync(readOnly, fs.constants.W_OK);
+    return;
+  } catch {
+    const run = boot({ dataDir: readOnly });
+    assert.equal(run.status, 0, 'no debe abortar el arranque');
+    assert.equal(run.output.dataDirWritable, false);
+  } finally {
+    fs.chmodSync(readOnly, 0o700);
+  }
 });
