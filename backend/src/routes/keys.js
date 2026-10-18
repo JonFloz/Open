@@ -15,6 +15,7 @@ import { authJWT } from '../middleware/authJWT.js';
 import { validate } from '../middleware/validate.js';
 import { ensureUserCredential, forgetUserCredential } from '../services/credentials.js';
 import { generateText, mapOpenCodeError } from '../services/opencodeClient.js';
+import { invalidateModelsCache } from './models.js';
 
 const router = Router();
 router.use(authJWT);
@@ -24,6 +25,40 @@ const createSchema = z.object({
   provider: z.string().trim().max(80).optional(),
   key: z.string().trim().min(8, 'La API key parece demasiado corta').max(500),
 });
+
+/** Integraciones de OpenCode donde se puede registrar una key. */
+const KNOWN_INTEGRATIONS = new Set([
+  'opencode',
+  'opencode-go',
+  'anthropic',
+  'openai',
+  'google',
+  'deepseek',
+  'openrouter',
+  'xai',
+  'mistral',
+  'groq',
+]);
+
+/**
+ * Registra y activa la credencial en el servidor de OpenCode.
+ *
+ * Es importante hacerlo al GUARDAR la key (no solo al chatear): mientras la
+ * integración no tenga credencial, OpenCode no publica sus modelos, así que el
+ * usuario seguiría viendo únicamente los gratuitos.
+ */
+async function registerCredential(req, row) {
+  const integrationID = KNOWN_INTEGRATIONS.has(row.provider) ? row.provider : undefined;
+  forgetUserCredential(req.user.id);
+  const result = await ensureUserCredential({
+    userId: req.user.id,
+    apiKey: revealApiKey(row),
+    integrationID,
+  });
+  // La lista de modelos cambia al activar una credencial: invalidamos la caché.
+  invalidateModelsCache();
+  return { ...result, integrationID: result.integrationID ?? integrationID ?? null };
+}
 
 /** GET /api/keys */
 router.get('/', (req, res) => {
@@ -37,8 +72,21 @@ router.post(
   asyncHandler(async (req, res) => {
     const key = createApiKey(req.user.id, req.body);
     if (key.isDefault) updateSettings(req.user.id, { defaultApiKeyId: key.id });
-    forgetUserCredential(req.user.id);
-    res.status(201).json({ key, count: countApiKeys(req.user.id) });
+
+    const row = findApiKeyRow(req.user.id, key.id);
+    const credential = await registerCredential(req, row);
+
+    res.status(201).json({
+      key,
+      count: countApiKeys(req.user.id),
+      credential: {
+        applied: credential.applied,
+        integrationID: credential.integrationID,
+        warning: credential.applied
+          ? null
+          : `La key se guardó, pero OpenCode no la aceptó todavía (${credential.reason ?? credential.error}).`,
+      },
+    });
   }),
 );
 
@@ -49,8 +97,10 @@ router.post(
     const key = setDefaultApiKey(req.user.id, req.params.id);
     if (!key) return res.status(404).json({ error: { code: 'not_found', message: 'API key no encontrada' } });
     updateSettings(req.user.id, { defaultApiKeyId: key.id });
-    forgetUserCredential(req.user.id);
-    res.json({ key });
+
+    const row = findApiKeyRow(req.user.id, key.id);
+    const credential = await registerCredential(req, row);
+    res.json({ key, credential: { applied: credential.applied, integrationID: credential.integrationID } });
   }),
 );
 
@@ -65,6 +115,7 @@ router.post(
     forgetUserCredential(req.user.id);
 
     const result = await ensureUserCredential({ userId: req.user.id, apiKey });
+    invalidateModelsCache();
     if (!result.applied) {
       return res.status(502).json({
         error: {
@@ -113,6 +164,7 @@ router.delete(
     const removed = deleteApiKey(req.user.id, req.params.id);
     if (!removed) return res.status(404).json({ error: { code: 'not_found', message: 'API key no encontrada' } });
     forgetUserCredential(req.user.id);
+    invalidateModelsCache();
     const settings = getSettings(req.user.id);
     if (settings.default_api_key_id === req.params.id) {
       const [first] = listApiKeys(req.user.id);

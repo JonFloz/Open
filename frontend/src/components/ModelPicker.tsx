@@ -106,6 +106,16 @@ export function ModelPicker() {
                 <li key={provider}>
                   <p className="px-3 pb-1 pt-2 text-[0.65rem] font-semibold uppercase tracking-wider text-muted">
                     {provider}
+                    {provider === 'opencode' ? (
+                      <span className="ml-2 rounded-full bg-surface-3 px-1.5 py-0.5 font-normal normal-case tracking-normal text-muted">
+                        gratuitos
+                      </span>
+                    ) : null}
+                    {provider === 'opencode-go' ? (
+                      <span className="ml-2 rounded-full bg-accent-soft px-1.5 py-0.5 font-normal normal-case tracking-normal text-accent">
+                        con tu suscripción
+                      </span>
+                    ) : null}
                   </p>
                   <ul>
                     {list.map((model) => {
@@ -136,6 +146,14 @@ export function ModelPicker() {
               ))
             )}
           </ul>
+
+          {models.some((model) => model.providerID === 'opencode') ? (
+            <p className="border-t border-border px-3 py-2 text-[0.65rem] leading-relaxed text-muted">
+              Los modelos <strong className="font-medium">gratuitos</strong> pueden estar bloqueados desde la IP del
+              servidor. Para usar los de <strong className="font-medium">OpenCode Go</strong>, guarda tu API key en
+              Ajustes → API keys.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -248,6 +248,37 @@ export async function connectCredential({ integrationID, key, label, activate = 
   return { id: created.id, created: true };
 }
 
+/**
+ * Errores conocidos de OpenCode que conviene explicar mejor al usuario.
+ * El texto original se conserva y se añade una pista accionable.
+ */
+const ERROR_HINTS = [
+  {
+    match: /free models aren'?t available|abusive traffic from this ip/i,
+    hint:
+      ' Los modelos gratuitos están bloqueados desde la IP de este servidor (OpenCode lo hace por tráfico abusivo). ' +
+      'Guarda tu API key de OpenCode Go en Ajustes → API keys y elige un modelo del proveedor «opencode-go».',
+  },
+  {
+    match: /missing api key/i,
+    hint: ' OpenCode no tiene ninguna credencial activa. Añade tu API key en Ajustes → API keys.',
+  },
+  {
+    match: /model unavailable/i,
+    hint: ' El modelo no está disponible: puede que la credencial no esté activa o que el modelo no exista.',
+  },
+];
+
+/** Añade una pista accionable a los errores conocidos de OpenCode. */
+export function humanizeError(message) {
+  const text = String(message ?? '').trim();
+  if (!text) return text;
+  for (const { match, hint } of ERROR_HINTS) {
+    if (match.test(text)) return `${text}${hint}`;
+  }
+  return text;
+}
+
 export class OpenCodeRequestError extends Error {
   constructor(message, { status = 502, code = 'opencode_error', retryAfter = null } = {}) {
     super(message);
@@ -359,5 +390,6 @@ export default {
   parseModelRef,
   modelToString,
   mapOpenCodeError,
+  humanizeError,
   OpenCodeRequestError,
 };

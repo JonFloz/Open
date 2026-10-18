@@ -20,6 +20,7 @@ import { ensureUserCredential } from '../services/credentials.js';
 import { eventHub } from '../services/eventHub.js';
 import {
   createSession,
+  humanizeError,
   interrupt,
   listMessages,
   mapOpenCodeError,
@@ -261,7 +262,10 @@ router.post(
           break;
         case 'session.execution.failed':
         case 'session.step.failed':
-          sendSse(res, 'error', { code: 'execution_failed', message: data.error?.message ?? 'La ejecución falló' });
+          sendSse(res, 'error', {
+            code: 'execution_failed',
+            message: humanizeError(data.error?.message ?? 'La ejecución falló'),
+          });
           break;
         default:
           break;
@@ -301,7 +305,7 @@ router.post(
           if (event.type === 'session.execution.failed') {
             return finish('error', {
               code: 'execution_failed',
-              message: event.data?.error?.message ?? 'OpenCode no devolvió contenido',
+              message: humanizeError(event.data?.error?.message ?? 'OpenCode no devolvió contenido'),
             });
           }
           return finish('error', { code: 'empty_response', message: 'OpenCode no devolvió contenido' });

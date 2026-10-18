@@ -81,6 +81,10 @@ test('flujo completo: registrar, autenticar y operar', async () => {
   });
   assert.equal(created.status, 201);
   assert.equal(created.payload.key.isDefault, true);
+  // Sin servidor de OpenCode disponible, la credencial no se puede aplicar,
+  // pero la petición no debe fallar y debe informarlo.
+  assert.ok(created.payload.credential, 'debe informar del estado de la credencial');
+  assert.equal(created.payload.credential.applied, false);
 
   const keys = await call('GET', '/api/keys', { token });
   assert.equal(keys.status, 200);

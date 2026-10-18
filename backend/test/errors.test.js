@@ -1,7 +1,7 @@
 import './helpers/env.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { OpenCodeRequestError, mapOpenCodeError, parseModelRef } from '../src/services/opencodeClient.js';
+import { OpenCodeRequestError, humanizeError, mapOpenCodeError, parseModelRef } from '../src/services/opencodeClient.js';
 
 test('401 → 401 con mensaje de API key inválida', () => {
   const mapped = mapOpenCodeError({ status: 401, message: 'nope' });
@@ -58,4 +58,23 @@ test('parseModelRef convierte provider/model', () => {
   assert.equal(parseModelRef('sin-separador'), null);
   assert.equal(parseModelRef(''), null);
   assert.equal(parseModelRef(null), null);
+});
+
+test('humanizeError añade una pista cuando los modelos gratuitos están bloqueados', () => {
+  const original =
+    "OpenCode's free models aren't available from your current network because we've detected abusive traffic from this IP address.";
+  const result = humanizeError(original);
+  assert.ok(result.startsWith(original), 'conserva el mensaje original');
+  assert.match(result, /OpenCode Go/);
+  assert.match(result, /Ajustes/);
+});
+
+test('humanizeError explica el caso de credencial ausente', () => {
+  assert.match(humanizeError('Missing API key.'), /credential activa|API key/i);
+});
+
+test('humanizeError deja intactos los mensajes desconocidos y los vacíos', () => {
+  assert.equal(humanizeError('algo raro pasó'), 'algo raro pasó');
+  assert.equal(humanizeError(''), '');
+  assert.equal(humanizeError(undefined), '');
 });

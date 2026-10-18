@@ -199,6 +199,44 @@ comprobada.
 > proveedores de terceros (`anthropic`, `openai`, `deepseek`, …) la credencial sí es
 > la que se utiliza.
 
+### Modelos gratuitos vs OpenCode Go
+
+La lista de modelos que devuelve OpenCode **depende de las credenciales activas**:
+
+| Situación | Modelos que aparecen |
+| --- | --- |
+| Sin ninguna credencial | ~12, todos del proveedor `opencode` (los gratuitos) |
+| Con una key de OpenCode Go activa | ~70, incluidos ~29 del proveedor `opencode-go` |
+
+Por eso la key se registra y activa **al guardarla** (no solo al chatear) y la caché
+de `/api/models` se invalida en ese momento: si no, seguirías viendo únicamente los
+gratuitos durante una hora.
+
+Los modelos del proveedor `opencode` son gratuitos pero OpenCode puede bloquearlos
+desde IPs de datacenter (Cloudflare, Render, VPS…) con el mensaje *«free models aren't
+available from your current network… abusive traffic»*. Eso **no depende de tu
+cuenta**: para evitarlo hay que usar un modelo de `opencode-go` con tu suscripción.
+
+El selector de modelos (⌘) etiqueta cada grupo — «gratuitos» y «con tu suscripción» —
+para que no haya dudas.
+
+### Guardar la API key: qué hace exactamente
+
+`POST /api/keys` cifra la key, la guarda en SQLite, **la registra como credencial
+activa** en la integración elegida (`provider`, por defecto `opencode-go`),
+invalida la caché de modelos y responde con el resultado:
+
+```json
+{
+  "key": { "id": "key_…", "masked": "••••nse5", "isDefault": true },
+  "credential": { "applied": true, "integrationID": "opencode-go", "warning": null }
+}
+```
+
+Si `applied` es `false`, la key se guardó pero OpenCode no la aceptó; el campo
+`warning` explica el motivo y el chat seguirá funcionando con la credencial del
+servidor.
+
 ## Referencia de la API
 
 Todas las rutas devuelven errores con la forma `{ error: { code, message, details? } }`.
@@ -452,6 +490,8 @@ Otras decisiones y su motivo:
 
 | Síntoma | Causa y solución |
 | --- | --- |
+| *«OpenCode's free models aren't available from your current network… abusive traffic»* | Estás usando un modelo del proveedor `opencode` (gratuito) desde una IP de datacenter, que OpenCode bloquea. No tiene que ver con tu cuenta. Guarda tu API key de OpenCode Go en **Ajustes → API keys** y selecciona un modelo del grupo **`opencode-go`** (etiquetado «con tu suscripción»). |
+| Solo veo modelos gratuitos aunque ya guardé mi API key | La lista se cachea 1 hora. Ya se invalida al guardar la key; si persiste, pulsa **Ajustes → Servidor → Actualizar estado** o recarga la página. Comprueba que la key se guardó con proveedor `opencode-go`. |
 | El despliegue falla con `JWT_SECRET y ENCRYPTION_KEY son obligatorios` | Ya no ocurre: el backend los genera y los guarda en `/data/secrets.json`. Actualiza a la última versión. Si quieres controlarlos, defínelos en Render → *Environment*. |
 | `Cannot find module 'better-sqlite3'` o `better_sqlite3.node` | npm 11+ bloquea los scripts de instalación. Ejecuta `npm rebuild better-sqlite3` (y `npm install-scripts approve better-sqlite3`). En Node 20 no ocurre. |
 | `/api/status` dice "sin conexión" | El servidor no arrancó. Mira `GET /api/status/logs` y comprueba que el binario existe (`OPENCODE_BIN`). |

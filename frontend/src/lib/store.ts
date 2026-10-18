@@ -347,20 +347,34 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   createApiKey: async (input) => {
-    await api('/api/keys', { method: 'POST', json: input });
+    const result = await api<{
+      key: ApiKey;
+      credential?: { applied: boolean; integrationID: string | null; warning: string | null };
+    }>('/api/keys', { method: 'POST', json: input });
+
     await get().loadApiKeys();
-    get().toast('API key guardada y cifrada', 'success');
+
+    if (result.credential?.applied) {
+      get().toast(`API key cifrada y activada en OpenCode (${result.credential.integrationID})`, 'success');
+    } else {
+      get().toast(result.credential?.warning ?? 'API key guardada, pero OpenCode no la aceptó', 'warning');
+    }
+
+    // Al activar la credencial OpenCode publica nuevos modelos: refrescamos.
+    await get().loadModels();
   },
 
   removeApiKey: async (id) => {
     await api(`/api/keys/${id}`, { method: 'DELETE' });
     await get().loadApiKeys();
+    await get().loadModels();
     get().toast('API key eliminada', 'success');
   },
 
   setDefaultApiKey: async (id) => {
     await api(`/api/keys/${id}/default`, { method: 'POST' });
     await get().loadApiKeys();
+    await get().loadModels();
   },
 
   verifyApiKey: async (id) => {
